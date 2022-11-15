@@ -1,0 +1,40 @@
+stages:
+ - build
+ - deploy
+
+
+build lambda:
+  stage: build
+  image: 
+    name: golang
+  cache:
+  - key:
+    files:
+      - main.zip
+  before_script:
+    - apt update && apt install zip -y
+  script:
+    GOOS=linux GOARCH=amd64 go build -o main main.go
+    zip main.zip main
+
+
+deploy lambda:
+  stage: deploy
+  image: amazon/aws-cli
+  cache:
+  - key:
+    files:
+      - main.zip
+  script:
+    - lambda update-function-code --function-name myfunction ….
+    - lambda publish-version --function-name myfunction
+    - lambda update-alias --function-name myfunction --name myalias --routing-config '{"AdditionalVersionWeights" : {"2" : 0.05} }'
+    - sleep 60
+    - lambda update-alias --function-name myfunction --name myalias --routing-config '{"AdditionalVersionWeights" : {"2" : 0.25} }'
+    - sleep 60
+    - lambda update-alias --function-name myfunction --name myalias --routing-config '{"AdditionalVersionWeights" : {"2" : 0.50} }'
+    - sleep 60
+    - lambda update-alias --function-name myfunction --name myalias --routing-config '{"AdditionalVersionWeights" : {"2" : 0.75} }'
+    - sleep 60
+    - lambda update-alias --function-name myfunction --name myalias --function-version 2 --routing-config '{}'
+
